@@ -1,15 +1,19 @@
-import { InputHTMLAttributes } from 'react';
+import { forwardRef } from 'react';
 import styled from 'styled-components';
 import { theme } from '../styles/theme';
 
-interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   name: string;
   label?: string;
 }
 
-export default function Input({ name, label, ...rest }: InputProps) {
-  return <InputElement id={label} name={name} {...rest} />;
-}
+const Input = forwardRef(function Input({ name, label, ...rest }: InputProps, ref) {
+  // 할일: ignore 제거
+  // @ts-ignore
+  return <InputElement id={label} name={name} {...rest} ref={ref} />;
+});
+
+export default Input;
 
 const InputElement = styled.input`
   width: 100%;

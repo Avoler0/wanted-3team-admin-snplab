@@ -6,13 +6,14 @@ import Label from './Label';
 interface InputCheckboxProps {
   name: string;
   label: string;
+  value: string;
 }
 
-export default function InputCheckbox({ label, name }: InputCheckboxProps) {
+export default function InputCheckbox({ label, name, value }: InputCheckboxProps) {
   return (
     <Container>
       <Wrapper>
-        <Input type="checkbox" name={name} label={label} hidden />
+        <Input type="checkbox" name={name} label={label} defaultValue={value} hidden />
         <Label name={label} label={label} color={theme.fontLightColor} />
       </Wrapper>
     </Container>

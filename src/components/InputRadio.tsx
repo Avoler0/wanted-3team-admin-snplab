@@ -1,17 +1,18 @@
+import { ReactNode } from 'react';
 import styled from 'styled-components';
-import Input from './Input';
 import Label from './Label';
 
 interface InputRadioProps {
   name: string;
   label: string;
+  children: ReactNode;
 }
 
-export default function InputRadio({ label, name }: InputRadioProps) {
+export default function InputRadio({ label, name, children }: InputRadioProps) {
   return (
     <Container>
       <Wrapper>
-        <Input type={'radio'} name={name} label={label} />
+        {children}
         <Label name={label} label={label} />
       </Wrapper>
     </Container>
