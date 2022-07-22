@@ -8,7 +8,7 @@ export const theme = {
   backgroundLightColor: 'rgb(255, 255, 255)',
   backgroundMediumColor: 'rgb(247, 247, 247)',
   backgroundDarkColor: 'rgb(202, 202, 202)',
-  borderLightColor: 'rgb(243, 243, 243)',
+  borderLightColor: 'rgb(204,204,204)',
   borderDarkColor: 'rgb(146, 146, 146)',
-  borderOnFocusColor: 'rgb(157,171,186)',
+  borderOnFocusColor: 'rgb(26,103,210)',
 } as const;
