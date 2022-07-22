@@ -8,10 +8,11 @@ import { BsCheckCircle, BsCheckLg } from 'react-icons/bs';
 import { BiChevronRight } from 'react-icons/bi';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { ERROR_MESSAGES, REGEXS } from '../constants/constants';
+import ErrorMessage from '../components/ErrorMessage';
 
-type Transportations = '버스' | '지하철' | '택시' | 'KTX/기차' | '도보' | '자전거' | '전동킥보드' | '자가용';
+type TransportationTypes = '버스' | '지하철' | '택시' | 'KTX/기차' | '도보' | '자전거' | '전동킥보드' | '자가용';
 
-interface AAA {
+interface Transportations {
   버스: boolean;
   지하철: boolean;
   택시: boolean;
@@ -36,7 +37,7 @@ export default function Registration() {
     개인정보처리방침: { isValid: false, message: '' },
     제3자정보제공: { isValid: false, message: '' },
   });
-  const [transportations, setTransportations] = useState<AAA>({
+  const [transportations, setTransportations] = useState<Transportations>({
     버스: false,
     지하철: false,
     택시: false,
@@ -75,20 +76,38 @@ export default function Registration() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    console.log('hasValidation', hasValidation);
+
     if (!hasValidation) return;
-    console.log('nameRef', nameRef.current?.value);
-    console.log('maleRef', maleRef.current?.value, maleRef.current?.checked);
-    console.log('femaleRef', femaleRef.current?.value, femaleRef.current?.checked);
-    console.log('birthRef', birthRef.current?.value);
-    console.log('addressRef', addressRef.current?.value);
-    console.log('contactRef', contactRef.current?.value);
-    console.log('emailRef', emailRef.current?.value);
-    console.log('폼 이벤트', event.currentTarget);
+
+    const postData = {
+      name: nameRef.current?.value,
+      gender: maleRef.current?.checked ? maleRef.current?.value : femaleRef.current?.value,
+      birth: birthRef.current?.value,
+      contact: contactRef.current?.value,
+      email: emailRef.current?.value,
+      transportations: Object.entries(transportations)
+        .filter(([transportation, isValid]) => isValid && transportation)
+        .map((transportation) => transportation[0]),
+    };
+
+    console.log('폼 최종', postData);
   };
 
   const changeCheckbox = (event: FormEvent<HTMLInputElement>) => {
-    const { checked, value } = event.currentTarget as { checked: boolean; value: Transportations };
-    setTransportations((prevState) => ({ ...prevState, [value]: checked }));
+    const { checked, value } = event.currentTarget as { checked: boolean; value: TransportationTypes };
+    setTransportations((prevState) => {
+      const newState = { ...prevState, [value]: checked };
+      const isValidTransportations = !!Object.values(newState).find(Boolean);
+
+      setInputStatus((prevState) => {
+        prevState.주교통수단.isValid = isValidTransportations;
+        prevState.주교통수단.message = checked ? '' : ERROR_MESSAGES.주교통수단;
+        return { ...prevState };
+      });
+
+      return newState;
+    });
   };
 
   const agreeAll = () =>
@@ -128,6 +147,7 @@ export default function Registration() {
 
   useEffect(() => {
     const validLength = Object.values(inputStatus).filter((input) => !input.isValid).length;
+    console.log('valid length', validLength);
 
     if (validLength === 0) return setHasValidation(true);
     hasValidation === true && setHasValidation(false);
@@ -142,6 +162,7 @@ export default function Registration() {
         </Title>
         <Form onSubmit={handleSubmit}>
           <InputContainer>
+            {!inputStatus.이름.isValid && <ErrorMessage message={inputStatus.이름.message} />}
             <Label name="이름" label="이름" />
             <Input name="이름" type={'text'} placeholder="홍길동" onChange={validateInput} ref={nameRef} required />
           </InputContainer>
@@ -168,10 +189,12 @@ export default function Registration() {
             </div>
           </InputContainer>
           <InputContainer>
+            {!inputStatus.생년월일.isValid && <ErrorMessage message={inputStatus.생년월일.message} />}
             <Label name="생년월일" label="생년월일" />
             <Input name="생년월일" type={'string'} placeholder="YYYY.MM.DD" ref={birthRef} onChange={validateInput} />
           </InputContainer>
           <InputContainer>
+            {!inputStatus.거주지역.isValid && <ErrorMessage message={inputStatus.거주지역.message} />}
             <Label name="거주지역" label="거주지역" />
             <Input
               name="거주지역"
@@ -182,6 +205,7 @@ export default function Registration() {
             />
           </InputContainer>
           <InputContainer>
+            {!inputStatus.연락처.isValid && <ErrorMessage message={inputStatus.연락처.message} />}
             <Label name="연락처" label="연락처" />
             <Input
               name="연락처"
@@ -192,15 +216,16 @@ export default function Registration() {
             />
           </InputContainer>
           <InputContainer>
+            {!inputStatus.이메일.isValid && <ErrorMessage message={inputStatus.이메일.message} />}
             <Label name="이메일" label="이메일" />
             <Input name="이메일" type={'email'} placeholder="MYD@snplap.com" ref={emailRef} onChange={validateInput} />
           </InputContainer>
           <InputContainer>
+            {!inputStatus.주교통수단.isValid && <ErrorMessage message={inputStatus.주교통수단.message} />}
             <Label label="주로 이용하는 교통수단" subLabel="주로 이용하는 교통수단을 모두 선택해주세요" />
             <InputCheckboxWrapper>
               {Object.keys(transportations).map((transportation, idx) => (
-                // <InputCheckbox key={idx} name="교통수단" label={transportation} value={transportation} />
-                <label>
+                <label key={idx}>
                   {transportation}
                   <input name="교통수단" value={transportation} type="checkbox" onClick={changeCheckbox} />
                 </label>
@@ -210,7 +235,7 @@ export default function Registration() {
 
           <TermsOfUse>
             <label>
-              <button onClick={agreeAll}>
+              <CheckButton isActivate onClick={agreeAll} type="button">
                 <BsCheckCircle
                   color={
                     inputStatus.개인정보처리방침.isValid && inputStatus.제3자정보제공.isValid
@@ -219,24 +244,24 @@ export default function Registration() {
                   }
                 />
                 <span>이용약관 모두 동의</span>
-              </button>
+              </CheckButton>
             </label>
             <label>
               <input type={'checkbox'} hidden />
-              <button onClick={togglePersonalInfoAgree} type="button">
+              <CheckButton isActivate onClick={togglePersonalInfoAgree} type="button">
                 <BsCheckLg
                   color={inputStatus.개인정보처리방침.isValid ? theme.buttonDarkColor : theme.buttonLightColor}
                 />
                 <span>개인정보 처리방침 고지 (필수)</span>
-              </button>
+              </CheckButton>
               <BiChevronRight />
             </label>
             <label>
               <input type={'checkbox'} hidden />
-              <button onClick={toggleThirdAgree} type="button">
+              <CheckButton isActivate onClick={toggleThirdAgree} type="button">
                 <BsCheckLg color={inputStatus.제3자정보제공.isValid ? theme.buttonDarkColor : theme.buttonLightColor} />
                 <span>제3자 정보제공 동의 (필수)</span>
-              </button>
+              </CheckButton>
               <BiChevronRight />
             </label>
           </TermsOfUse>
@@ -307,6 +332,15 @@ const TermsOfUse = styled.div`
   }
 `;
 
+const CheckButton = styled.button<{ isActivate: boolean }>`
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  color: ${(props) => (props.isActivate ? '' : theme.fontLightColor)};
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+`;
 const Button = styled.button<{ isActivate: boolean }>`
   color: ${(props) => (props.isActivate ? '' : theme.fontLightColor)};
   background-color: ${(props) => (props.isActivate ? '' : theme.buttonLightColor)};

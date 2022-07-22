@@ -11,6 +11,7 @@ export default function InputContainer({ children, direction = 'column', ...rest
 }
 
 const Container = styled.div<{ direction: DirectionType }>`
+  position: relative;
   width: 100%;
   display: flex;
   flex-direction: ${(props) => props.direction};
