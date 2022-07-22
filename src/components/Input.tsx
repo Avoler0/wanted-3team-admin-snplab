@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, RefObject } from 'react';
 import styled from 'styled-components';
 import { theme } from '../styles/theme';
 
@@ -7,13 +7,11 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
 }
 
-const Input = forwardRef(function Input({ name, label, ...rest }: InputProps, ref) {
-  // 할일: ignore 제거
-  // @ts-ignore
-  return <InputElement id={label} name={name} {...rest} ref={ref} />;
-});
+export type RefWithNullType = RefObject<HTMLInputElement> | null | undefined;
 
-export default Input;
+export default forwardRef(function Input({ name, label, ...rest }: InputProps, ref) {
+  return <InputElement id={label} name={name} {...rest} ref={ref as RefWithNullType} />;
+});
 
 const InputElement = styled.input`
   width: 100%;

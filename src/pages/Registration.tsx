@@ -1,14 +1,17 @@
 import styled from 'styled-components';
 import Input from '../components/Input';
-import InputContainer from '../components/InputContainer';
 import InputRadio from '../components/InputRadio';
-import Label from '../components/Label';
 import { theme } from '../styles/theme';
-import { BsCheckCircle, BsCheckLg } from 'react-icons/bs';
-import { BiChevronRight } from 'react-icons/bi';
-import { FormEvent, useEffect, useRef, useState } from 'react';
-import { ERROR_MESSAGES, REGEXS } from '../constants/constants';
-import ErrorMessage from '../components/ErrorMessage';
+import { ChangeEvent, FormEvent, MouseEvent, RefObject, useEffect, useRef, useState } from 'react';
+import { ERROR_MESSAGES, PRIVACY_POLICY, REGEXS } from '../constants/constants';
+import InputContainerAbst from '../components/InputContainer';
+import Modal from '../components/Modal';
+import { useLocation, useNavigate } from 'react-router-dom';
+import PersonalInformationPolicy from '../assets/privacy_policy';
+import PolicyConfirm from '../components/PolicyConfirm';
+import CheckboxInput from '../components/CheckboxInput';
+import Checkbox from '../components/Checkbox';
+import CheckboxContainer from '../components/CheckboxContainer';
 
 type TransportationTypes = '버스' | '지하철' | '택시' | 'KTX/기차' | '도보' | '자전거' | '전동킥보드' | '자가용';
 
@@ -23,10 +26,25 @@ interface Transportations {
   자가용: boolean;
 }
 
-const INPUT_NAMES = ['이름', '생년월일', '연락처', '이메일'] as const;
+const INPUT_NAMES = [
+  '이름',
+  '생년월일',
+  '거주지역',
+  '연락처',
+  '이메일',
+  '주교통수단',
+  '개인정보처리방침',
+  '제3자정보제공',
+] as const;
+
 type InputNameTypes = typeof INPUT_NAMES[number];
+type InputValidationTypes = Extract<InputNameTypes, '이름' | '생년월일' | '연락처' | '이메일' | '거주지역'>;
 
 export default function Registration() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state as { modal: keyof typeof PersonalInformationPolicy };
+
   const [inputStatus, setInputStatus] = useState({
     이름: { isValid: false, message: '' },
     생년월일: { isValid: false, message: '' },
@@ -37,6 +55,7 @@ export default function Registration() {
     개인정보처리방침: { isValid: false, message: '' },
     제3자정보제공: { isValid: false, message: '' },
   });
+
   const [transportations, setTransportations] = useState<Transportations>({
     버스: false,
     지하철: false,
@@ -58,11 +77,15 @@ export default function Registration() {
   const contactRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
-  const checkValidation = (name: InputNameTypes, value: string) => new RegExp(REGEXS[name]).test(value);
+  const agreeAllRef = useRef<HTMLInputElement>(null);
+  const personalInformationRef = useRef<HTMLInputElement>(null);
+  const consentToProvideInformationRef = useRef<HTMLInputElement>(null);
 
-  const validateInput = (event: FormEvent<HTMLInputElement>) => {
+  const checkValidation = (name: InputValidationTypes, value: string) => new RegExp(REGEXS[name]).test(value);
+
+  const validateInput = (event: ChangeEvent<HTMLInputElement>) => {
     if (!event.currentTarget) return;
-    const { name, value } = event.currentTarget as { name: InputNameTypes; value: string };
+    const { name, value } = event.currentTarget as { name: InputValidationTypes; value: string };
 
     const passedValidation = checkValidation(name, value);
     if (inputStatus[name].isValid === passedValidation) return;
@@ -94,7 +117,7 @@ export default function Registration() {
     console.log('폼 최종', postData);
   };
 
-  const changeCheckbox = (event: FormEvent<HTMLInputElement>) => {
+  const changeCheckbox = (event: MouseEvent<HTMLInputElement>) => {
     const { checked, value } = event.currentTarget as { checked: boolean; value: TransportationTypes };
     setTransportations((prevState) => {
       const newState = { ...prevState, [value]: checked };
@@ -110,48 +133,52 @@ export default function Registration() {
     });
   };
 
-  const agreeAll = () =>
+  const isTrue = (...rest: boolean[]) => (rest.find((value) => value === false) === undefined ? true : false);
+
+  const agreeAll = (event: MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (!agreeAllRef.current || !personalInformationRef.current || !consentToProvideInformationRef.current) return;
+    let agreeAll = agreeAllRef.current;
+    let personalInfo = personalInformationRef.current;
+    let consentToProvideInfo = consentToProvideInformationRef.current;
+
+    let newCheckValue = true;
+    if (isTrue(personalInfo.checked, consentToProvideInfo.checked)) newCheckValue = false;
+
+    agreeAll.checked = newCheckValue;
+    personalInfo.checked = newCheckValue;
+    consentToProvideInfo.checked = newCheckValue;
+
     setInputStatus((prevState) => {
-      let isValid = true;
-      if (prevState.개인정보처리방침.isValid && prevState.제3자정보제공.isValid) isValid = false;
-
-      return {
-        ...prevState,
-        개인정보처리방침: {
-          ...prevState.개인정보처리방침,
-          isValid,
-        },
-        제3자정보제공: {
-          ...prevState.제3자정보제공,
-          isValid,
-        },
-      };
+      prevState.개인정보처리방침.isValid = newCheckValue;
+      prevState.제3자정보제공.isValid = newCheckValue;
+      return { ...prevState };
     });
+  };
 
-  const togglePersonalInfoAgree = () =>
-    setInputStatus((prevState) => ({
-      ...prevState,
-      개인정보처리방침: {
-        ...prevState.개인정보처리방침,
-        isValid: !prevState.개인정보처리방침.isValid,
-      },
-    }));
-  const toggleThirdAgree = () =>
-    setInputStatus((prevState) => ({
-      ...prevState,
-      제3자정보제공: {
-        ...prevState.제3자정보제공,
-        isValid: !prevState.제3자정보제공.isValid,
-      },
-    }));
+  const changePolicy = (target: RefObject<HTMLInputElement>) => {
+    setInputStatus((prevState) => {
+      if (!target.current) return prevState;
+      const { name, checked } = target.current as { name: keyof typeof inputStatus; checked: boolean };
+      prevState[name].isValid = checked;
+      prevState[name].message = checked ? '' : ERROR_MESSAGES[name];
+      return { ...prevState };
+    });
+  };
 
+  const seePersonalInformation = () => {
+    navigate('', { state: { modal: PRIVACY_POLICY.개인정보처리방침 } });
+  };
+  const seeConsentToProvideInformation = () => {
+    navigate('', { state: { modal: PRIVACY_POLICY.제3자정보제공 } });
+  };
   useEffect(() => {
     const validLength = Object.values(inputStatus).filter((input) => !input.isValid).length;
-    console.log('valid length', validLength);
+    console.log('valid length', validLength, Object.entries(inputStatus));
 
     if (validLength === 0) return setHasValidation(true);
     hasValidation === true && setHasValidation(false);
-  }, [inputStatus]);
+  }, [inputStatus, personalInformationRef, consentToProvideInformationRef]);
 
   return (
     <Container>
@@ -161,114 +188,153 @@ export default function Registration() {
           <span>필요한 정보를 입력해 주세요</span>
         </Title>
         <Form onSubmit={handleSubmit}>
-          <InputContainer>
-            {!inputStatus.이름.isValid && <ErrorMessage message={inputStatus.이름.message} />}
-            <Label name="이름" label="이름" />
-            <Input name="이름" type={'text'} placeholder="홍길동" onChange={validateInput} ref={nameRef} required />
-          </InputContainer>
-          <InputContainer>
-            <Label label="성별" />
-            <div style={{ display: 'flex', width: '100%' }}>
-              {['여자', '남자'].map((gender, idx) => (
-                <InputRadio
-                  key={idx}
-                  name="성별"
-                  label={gender}
-                  children={
-                    <Input
-                      type={'radio'}
-                      name={'성별'}
-                      label={gender}
-                      value={gender}
-                      ref={genderRefs[idx]}
-                      defaultChecked={!!!idx}
-                    />
-                  }
-                />
-              ))}
-            </div>
-          </InputContainer>
-          <InputContainer>
-            {!inputStatus.생년월일.isValid && <ErrorMessage message={inputStatus.생년월일.message} />}
-            <Label name="생년월일" label="생년월일" />
-            <Input name="생년월일" type={'string'} placeholder="YYYY.MM.DD" ref={birthRef} onChange={validateInput} />
-          </InputContainer>
-          <InputContainer>
-            {!inputStatus.거주지역.isValid && <ErrorMessage message={inputStatus.거주지역.message} />}
-            <Label name="거주지역" label="거주지역" />
-            <Input
-              name="거주지역"
-              type={'text'}
-              placeholder="겨주지역 선택"
-              ref={addressRef}
-              onChange={validateInput}
-            />
-          </InputContainer>
-          <InputContainer>
-            {!inputStatus.연락처.isValid && <ErrorMessage message={inputStatus.연락처.message} />}
-            <Label name="연락처" label="연락처" />
-            <Input
-              name="연락처"
-              type={'string'}
-              placeholder="'-'없이 입력해 주세요"
-              ref={contactRef}
-              onChange={validateInput}
-            />
-          </InputContainer>
-          <InputContainer>
-            {!inputStatus.이메일.isValid && <ErrorMessage message={inputStatus.이메일.message} />}
-            <Label name="이메일" label="이메일" />
-            <Input name="이메일" type={'email'} placeholder="MYD@snplap.com" ref={emailRef} onChange={validateInput} />
-          </InputContainer>
-          <InputContainer>
-            {!inputStatus.주교통수단.isValid && <ErrorMessage message={inputStatus.주교통수단.message} />}
-            <Label label="주로 이용하는 교통수단" subLabel="주로 이용하는 교통수단을 모두 선택해주세요" />
-            <InputCheckboxWrapper>
-              {Object.keys(transportations).map((transportation, idx) => (
-                <label key={idx}>
-                  {transportation}
-                  <input name="교통수단" value={transportation} type="checkbox" onClick={changeCheckbox} />
-                </label>
-              ))}
-            </InputCheckboxWrapper>
-          </InputContainer>
+          <InputContainerAbst
+            isValid={inputStatus.이름.isValid}
+            errorMessage={inputStatus.이름.message}
+            name="이름"
+            label="이름"
+            children={
+              <Input name="이름" type={'text'} placeholder="홍길동" onChange={validateInput} ref={nameRef} required />
+            }
+          />
+          <InputContainerAbst
+            name="성별"
+            label="성별"
+            children={
+              <div style={{ display: 'flex', width: '100%' }}>
+                {['여자', '남자'].map((gender, idx) => (
+                  <InputRadio
+                    key={idx}
+                    name="성별"
+                    label={gender}
+                    children={
+                      <CheckboxInput
+                        type={'radio'}
+                        name={'성별'}
+                        label={gender}
+                        value={gender}
+                        ref={genderRefs[idx]}
+                        defaultChecked={!!!idx}
+                      />
+                    }
+                  />
+                ))}
+              </div>
+            }
+          />
+          <InputContainerAbst
+            isValid={inputStatus.생년월일.isValid}
+            errorMessage={inputStatus.생년월일.message}
+            name="생년월일"
+            label="생년월일"
+            children={
+              <Input name="생년월일" type={'string'} placeholder="YYYY.MM.DD" ref={birthRef} onChange={validateInput} />
+            }
+          />
+          <InputContainerAbst
+            isValid={inputStatus.거주지역.isValid}
+            errorMessage={inputStatus.거주지역.message}
+            name="거주지역"
+            label="거주지역"
+            children={
+              <Input
+                name="거주지역"
+                type={'text'}
+                placeholder="겨주지역 선택"
+                ref={addressRef}
+                onChange={validateInput}
+              />
+            }
+          />
 
-          <TermsOfUse>
-            <label>
-              <CheckButton isActivate onClick={agreeAll} type="button">
-                <BsCheckCircle
-                  color={
-                    inputStatus.개인정보처리방침.isValid && inputStatus.제3자정보제공.isValid
-                      ? theme.buttonDarkColor
-                      : theme.buttonLightColor
-                  }
+          <InputContainerAbst
+            isValid={inputStatus.연락처.isValid}
+            errorMessage={inputStatus.연락처.message}
+            name="연락처"
+            label="연락처"
+            children={
+              <Input
+                name="연락처"
+                type={'string'}
+                placeholder="'-'없이 입력해 주세요"
+                ref={contactRef}
+                onChange={validateInput}
+              />
+            }
+          />
+
+          <InputContainerAbst
+            isValid={inputStatus.이메일.isValid}
+            errorMessage={inputStatus.이메일.message}
+            name="이메일"
+            label="이메일"
+            children={
+              <Input
+                name="이메일"
+                type={'email'}
+                placeholder="MYD@snplap.com"
+                ref={emailRef}
+                onChange={validateInput}
+              />
+            }
+          />
+          <InputContainerAbst
+            isValid={inputStatus.주교통수단.isValid}
+            errorMessage={inputStatus.주교통수단.message}
+            name="주로 이용하는 교통수단"
+            label="주로 이용하는 교통수단"
+            subLabel="주로 이용하는 교통수단을 모두 선택해주세요"
+            children={
+              <InputCheckboxWrapper>
+                {Object.keys(transportations).map((transportation, idx) => (
+                  <label key={idx}>
+                    {transportation}
+                    <input name="교통수단" value={transportation} type="checkbox" onClick={changeCheckbox} />
+                  </label>
+                ))}
+              </InputCheckboxWrapper>
+            }
+          />
+
+          <CheckboxContainer
+            wholeController={
+              <Checkbox
+                name="이용약관 모두 동의"
+                label="이용약관 모두 동의"
+                ref={agreeAllRef}
+                onClickWrapper={agreeAll}
+              />
+            }
+            checkboxes={
+              <>
+                <Checkbox
+                  name={PRIVACY_POLICY.개인정보처리방침}
+                  label="개인정보 처리방침 고지 (필수)"
+                  isValid={inputStatus.개인정보처리방침.isValid}
+                  errorMessage={inputStatus.개인정보처리방침.message}
+                  ref={personalInformationRef}
+                  changeInput={() => changePolicy(personalInformationRef)}
+                  changePage={seePersonalInformation}
                 />
-                <span>이용약관 모두 동의</span>
-              </CheckButton>
-            </label>
-            <label>
-              <input type={'checkbox'} hidden />
-              <CheckButton isActivate onClick={togglePersonalInfoAgree} type="button">
-                <BsCheckLg
-                  color={inputStatus.개인정보처리방침.isValid ? theme.buttonDarkColor : theme.buttonLightColor}
+                <Checkbox
+                  name={PRIVACY_POLICY.제3자정보제공}
+                  label="제3자 정보제공 동의 (필수)"
+                  isValid={inputStatus.제3자정보제공.isValid}
+                  errorMessage={inputStatus.제3자정보제공.message}
+                  ref={consentToProvideInformationRef}
+                  changeInput={() => changePolicy(consentToProvideInformationRef)}
+                  changePage={seeConsentToProvideInformation}
                 />
-                <span>개인정보 처리방침 고지 (필수)</span>
-              </CheckButton>
-              <BiChevronRight />
-            </label>
-            <label>
-              <input type={'checkbox'} hidden />
-              <CheckButton isActivate onClick={toggleThirdAgree} type="button">
-                <BsCheckLg color={inputStatus.제3자정보제공.isValid ? theme.buttonDarkColor : theme.buttonLightColor} />
-                <span>제3자 정보제공 동의 (필수)</span>
-              </CheckButton>
-              <BiChevronRight />
-            </label>
-          </TermsOfUse>
+              </>
+            }
+          />
 
           <Button isActivate={hasValidation}>지원하기</Button>
         </Form>
       </Wrapper>
+      {state?.modal && (
+        <Modal height="100%" children={<PolicyConfirm innerHtml={PersonalInformationPolicy[state.modal]} />} />
+      )}
     </Container>
   );
 }
@@ -311,36 +377,6 @@ const InputCheckboxWrapper = styled.div`
   gap: 0.5rem 0.7rem;
 `;
 
-const TermsOfUse = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  label {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    justify-content: space-between;
-  }
-  label svg {
-  }
-  label span {
-    width: 100%;
-  }
-  label:first-child {
-    border-bottom: 1px solid ${theme.borderDarkColor};
-    padding-bottom: 0.5rem;
-  }
-`;
-
-const CheckButton = styled.button<{ isActivate: boolean }>`
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  color: ${(props) => (props.isActivate ? '' : theme.fontLightColor)};
-  background-color: transparent;
-  border: none;
-  cursor: pointer;
-`;
 const Button = styled.button<{ isActivate: boolean }>`
   color: ${(props) => (props.isActivate ? '' : theme.fontLightColor)};
   background-color: ${(props) => (props.isActivate ? '' : theme.buttonLightColor)};

@@ -13,7 +13,7 @@ export default function InputCheckbox({ label, name, value }: InputCheckboxProps
   return (
     <Container>
       <Wrapper>
-        <Input type="checkbox" name={name} label={label} defaultValue={value} hidden />
+        <Input type="checkbox" name={name} label={label} defaultValue={value} />
         <Label name={label} label={label} color={theme.fontLightColor} />
       </Wrapper>
     </Container>
